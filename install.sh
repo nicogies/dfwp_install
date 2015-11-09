@@ -107,7 +107,7 @@ adminemail="clement.biron@gmail.com"
 dbname=$foldername
 dbuser=root
 dbpass=root
-dbprefix="$foldername_"
+dbprefix="$foldername"_
 
 
 #  ==============================

@@ -3,9 +3,10 @@
 # Automatize WordPress installation
 # bash install.sh
 #
-# Inspirated from Maxime BJ
+# Inspirated from Maxime BJ & Clément Biron
 # For more information, please visit 
-# http://www.wp-spread.com/tuto-wp-cli-comment-installer-et-configurer-wordpress-en-moins-dune-minute-et-en-seulement-un-clic/
+# https://bitbucket.org/maximebj/wippy-spread
+# https://github.com/posykrat/dfwp_install
 
 #  ==============================
 #  ECHO COLORS, FUNCTIONS AND VARS
@@ -80,9 +81,9 @@ if [ -z $acfkey ]
 fi
 
 # Paths
-rootpath="/var/www/public/"
+rootpath="/var/www/"
 pathtoinstall="${rootpath}${foldername}"
-pluginfilepath="${rootpath}dfwp_install/plugins.txt"
+pluginfilepath="${rootpath}wp_install/plugins.txt"
 
 success "Récap"
 echo "--------------------------------------"
@@ -103,10 +104,10 @@ adminpass="admin"
 adminemail="clement.biron@gmail.com"
 
 # DB
-dbname=localhost
+dbname=$foldername
 dbuser=root
 dbpass=root
-dbprefix="pwrxt_$foldername"
+dbprefix="$foldername_"
 
 
 #  ==============================

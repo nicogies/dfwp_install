@@ -73,7 +73,7 @@ if [ -z $foldername ]
 		exit
 fi
 
-# On récupère l'url (généré d'après le folder)
+# On récupère l'url (généré d'après le folder)	
 # Si pas de valeur renseignée, message d'erreur et exit
 url="http://localhost/${foldername}"
 read -e -i "$url" -p "Url du projet ? " input
@@ -113,7 +113,7 @@ echo "--------------------------------------"
 # Admin login
 adminlogin="nimda"
 adminpass="admin"
-adminemail="clement.biron@gmail.com"
+adminemail="nicolas.gies@digitaslbi.fr"
 
 # DB
 dbname=$foldername
@@ -121,6 +121,8 @@ dbuser=root
 dbpass=root
 dbprefix="$foldername"_
 
+# Wordpress Locale
+locale=en_US
 
 #  ==============================
 #  = The show is about to begin =
@@ -155,8 +157,8 @@ apache_modules:
 " >> wp-cli.yml
 
 # Download WP
-bot "Je télécharge la dernière version de WordPress en français..."
-wp core download --locale=fr_FR --force
+bot "Je télécharge la dernière version de WordPress ($locale)..."
+wp core download --locale=$locale --force
 
 # Check version
 bot "J'ai récupéré cette version :"
@@ -176,6 +178,11 @@ define('EMPTY_TRASH_DAYS', 7);
 
 //Mode debug
 define('WP_DEBUG', true);
+
+if ( defined( 'WP_CLI' ) ) {
+    $_SERVER['HTTP_HOST'] = $_SERVER['SERVER_NAME'] = ''; // avoid php notices error message
+    $_SERVER['SERVER_PORT'] = 80;
+}
 PHP
 
 # Create database
@@ -194,7 +201,7 @@ do
     wp plugin install $line --activate
 done < $pluginfilepath
 
-# Si on a bien une clé acf pro
+#Si on a bien une clé acf pro
 if [ -n "$acfkey" ]
 	then
 		bot "-> J'installe la version pro de ACF"

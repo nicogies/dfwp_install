@@ -111,7 +111,7 @@ echo -e "Liste des plugins à installer : $pluginfilepath"
 echo "--------------------------------------"
 
 # Admin login
-adminlogin="nimda"
+adminlogin="${foldername}_admin"
 adminpass="admin"
 adminemail="nicolas.gies@digitaslbi.fr"
 
@@ -179,10 +179,8 @@ define('EMPTY_TRASH_DAYS', 7);
 //Mode debug
 define('WP_DEBUG', true);
 
-if ( defined( 'WP_CLI' ) ) {
-    $_SERVER['HTTP_HOST'] = $_SERVER['SERVER_NAME'] = ''; // avoid php notices error message
-    $_SERVER['SERVER_PORT'] = 80;
-}
+//To avoid error notice messages with WP-CLI
+if ( defined( 'WP_CLI' ) ) $_SERVER['HTTP_HOST'] = $_SERVER['SERVER_NAME'] = '';
 PHP
 
 # Create database
@@ -265,7 +263,7 @@ wp rewrite structure "/%postname%/" --hard
 wp rewrite flush --hard
 
 #Modifier le fichier htaccess
-bot "J'ajoute des règles Apache dans le fichier htaccess"
+bot "J'ajoute des règles de sécurité dans le fichier htaccess"
 cd $pathtoinstall
 echo "
 #Interdire le listage des repertoires
@@ -282,7 +280,26 @@ Options All -Indexes
 	order allow,deny 
 	deny from all 
 </Files>
+
+<FilesMatch \"^(README|readme|changelog)\.(txt|html|htm)$\">
+order allow,deny
+deny from all
+</FilesMatch>
+
+# Block the include-only files.
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteBase /
+RewriteRule ^wp-admin/includes/ - [F,L]
+RewriteRule !^wp-includes/ - [S=3]
+RewriteRule ^wp-includes/[^/]+\.php$ - [F,L]
+RewriteRule ^wp-includes/js/tinymce/langs/.+\.php - [F,L]
+RewriteRule ^wp-includes/theme-compat/ - [F,L]
+</IfModule>
 " >> .htaccess
+
+#Options de sécurité, juste au cas où
+wp option update users_can_register 0
 
 #Créer la page de la pattern library
 bot "Je crée la page pattern et l'associe au template adéquat."
@@ -299,38 +316,33 @@ echo -e "Admin email	: $adminemail"
 echo -e "DB name 		: localhost"
 echo -e "DB user 		: root"
 echo -e "DB pass 		: root"
-echo -e "DB prefix 		: pwrxt_$foldername"
+echo -e "DB prefix 		: $dbprefix"
 echo -e "WP_DEBUG 		: TRUE"
 echo "--------------------------------------"
 
-# Si on veut versionner le projet sur Bibucket
-read -p "Versionner le projet sur Bitbucket (y/n) ? " yn
+# Si on veut versionner le projet sur Gitlab
+read -p "Versionner le projet sur Gitlab (y/n) ? " yn
 case "$yn" in
     y ) 
-		# On se positione dans le dossier du thème
-		cd $pathtoinstall
-		cd wp-content/themes/
-		cd $foldername
 
-		# On supprime le dossier git présent
-		rm -f -r .git
+		# On supprime le dossier git présent dans le dossier du thème
+		rm -rf $pathtoinstall/wp-content/themes/$foldername.git
 	
 		# On récupère les infos nécessaire
 		read -p "Login ? " login
 		read -p "Password ? " pass
 		read -p "Nom du dépôt ? " depot
-		
-		#Créer le dépôt sur Bitbucket
-		curl --user $login:$pass https://api.bitbucket.org/1.0/repositories/ --data name=$depot --data is_private='true'
 	    
 	    # Init git et lien avec le dépôt
 	    git init 
-	    git remote add origin git@bitbucket.org:$login/$depot.git 
-	    
+	    git remote add upstream $adresse_git_ssh
+
+		#TODO : GITIGNORE
+		
 	    # Ajouter les fichiers untracked, commit et push toussa
 	    git add -A 
 	    git commit -m 'first commit'
-	    git push -u origin master
+	    git push -u upstream master
 
 	    success "OK ! adresse du dépôt est : https://bitbucket.org/$login/$depot";;
     n ) 

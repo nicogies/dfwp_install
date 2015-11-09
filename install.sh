@@ -45,30 +45,42 @@ function success {
 #  VARS
 #  ==============================
 
-# On récupère l'url
+
+# On récupère le titre du site
 # Si pas de valeur renseignée, message d'erreur et exit
-read -p "Url du projet ? " url
-if [ -z $url ]
+title="Projet 1"
+read -e -i "$title" -p "Titre du projet ? " input
+title="${input:-$title}"
+if [ -z "$title" ]
 	then
-		error 'Renseigner une url'
+		error 'Renseigner un titre pour le site'
 		exit
 fi
 
-# On récupère le nom du dossier
+# On récupère le nom du dossier (généré d'après le titre du projet)
 # Si pas de valeur renseignée, message d'erreur et exit
-read -p "Nom du dossier ? " foldername
+# first, strip underscores, replace spaces with underscores, clean out anything that's not alphanumeric or an underscore and finally , lowercase with TR
+SANITIZED_TITLE=${title//_/}
+SANITIZED_TITLE=${title// /_}
+SANITIZED_TITLE=${title//[^a-zA-Z0-9_]/}
+SANITIZED_TITLE=`echo -n $SANITIZED_TITLE | tr A-Z a-z`
+foldername=$SANITIZED_TITLE
+read -e -i "$foldername" -p "Nom du dossier ? " input
+foldername="${input:-$foldername}"
 if [ -z $foldername ]
 	then
 		error 'Renseigner un nom de dossier'
 		exit
 fi
 
-# On récupère le titre du site
+# On récupère l'url (généré d'après le folder)
 # Si pas de valeur renseignée, message d'erreur et exit
-read -p "Titre du projet ? " title
-if [ -z "$title" ]
+url="http://localhost/${foldername}"
+read -e -i "$url" -p "Url du projet ? " input
+url="${input:-$url}"
+if [ -z $url ]
 	then
-		error 'Renseigner un titre pour le site'
+		error 'Renseigner une url'
 		exit
 fi
 

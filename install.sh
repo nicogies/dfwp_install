@@ -112,8 +112,9 @@ echo "--------------------------------------"
 
 # Admin login
 adminlogin="${foldername}_admin"
-adminpass="admin"
 adminemail="nicolas.gies@digitaslbi.fr"
+# Generate random admin password
+adminpass=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-16}`
 
 # DB
 dbhost=localhost
@@ -200,7 +201,8 @@ wp core install --url=$url --title="$title" --admin_user=$adminlogin --admin_ema
 
 # Plugins install
 bot "J'installe les plugins à partir de la liste"
-while read line
+
+while read line || [ -n "$line" ]
 do
 	bot "-> Plugin $line"
     wp plugin install $line --activate
@@ -217,26 +219,22 @@ if [ -n "$acfkey" ]
 fi
 
 # Download from private git repository
-bot "Je télécharge le thème DFWP"
+bot "Je télécharge le thème sage"
 cd $pathtoinstall
 cd wp-content/themes/
-git clone https://github.com/posykrat/dfwp.git
+git clone https://github.com/roots/sage.git $foldername
+cd $foldername
+LATEST_RELEASE=$(git describe --tags $(git rev-list --tags --max-count=1))
+git checkout $LATEST_RELEASE
 
-bot "Je télécharge le thème DFWP_CHILD"
-git clone https://github.com/posykrat/dfwp_child.git
-
-bot "Je copie le dossier dfwp_child vers $foldername"
-cp -rf dfwp_child $foldername
 
 # Modify style.css
 bot "Je modifie le fichier style.css du thème $foldername"
 echo "/* 
 	Theme Name: $foldername
-	Description: Child of DFWP theme framework
-	Author: Clément Biron
-	Template: dfwp
+	Description: $foldername theme based on Sage Starter Theme
 	Version: 1.0 
-*/" > $foldername/style.css
+*/" > style.css
 
 # Activate theme
 bot "J'active le thème $foldername:"
@@ -254,15 +252,15 @@ wp theme delete twentyfifteen
 wp option update blogdescription ''
 
 # Create standard pages
-bot "Je crée les pages standards accueil et mentions légales"
-wp post create --post_type=page --post_title='Accueil' --post_status=publish
-wp post create --post_type=page --post_title='Mentions Légales' --post_status=publish
+bot "Je crée les pages standards Home et Terms and conditions"
+wp post create --post_type=page --post_title='Home' --post_status=publish
+wp post create --post_type=page --post_title='Terms and conditions' --post_status=publish
 
-# La page d'accueil est une page
-# Et c'est la page qui se nomme accueil
-bot "Configuration de la page accueil"
+# La page Home est une page
+# Et c'est la page qui se nomme Home
+bot "Configuration de la page Home"
 wp option update show_on_front 'page'
-wp option update page_on_front $(wp post list --post_type=page --post_status=publish --posts_per_page=1 --pagename=Accueil --field=ID --format=ids)
+wp option update page_on_front $(wp post list --post_type=page --post_status=publish --posts_per_page=1 --pagename=Home --field=ID --format=ids)
 
 # Permalinks to /%postname%/
 bot "J'active la structure des permaliens /%postname%/ et génère le fichier .htaccess"
@@ -309,8 +307,8 @@ RewriteRule ^wp-includes/theme-compat/ - [F,L]
 wp option update users_can_register 0
 
 #Créer la page de la pattern library
-bot "Je crée la page pattern et l'associe au template adéquat."
-wp post create --post_type=page --post_title='Pattern' --post_status=publish --page_template='page-pattern.php'
+#bot "Je crée la page pattern et l'associe au template adéquat."
+#wp post create --post_type=page --post_title='Pattern' --post_status=publish --page_template='page-pattern.php'
 
 # Finish !
 success "L'installation est terminée !"

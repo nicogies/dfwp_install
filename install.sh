@@ -201,7 +201,6 @@ wp core install --url=$url --title="$title" --admin_user=$adminlogin --admin_ema
 
 # Plugins install
 bot "J'installe les plugins à partir de la liste"
-
 while read line || [ -n "$line" ]
 do
 	bot "-> Plugin $line"

@@ -94,8 +94,8 @@ fi
 
 # Paths
 rootpath="/var/www/"
-pathtoinstall="${rootpath}${foldername}"
 pluginfilepath="${rootpath}wp_install/plugins.txt"
+pathtoinstall="${rootpath}${foldername}"
 
 success "Récap"
 echo "--------------------------------------"
@@ -107,7 +107,7 @@ if [ -n "$acfkey" ]
 		echo -e "Clé ACF pro : $acfkey"
 fi
 echo -e "Path : $pathtoinstall"
-echo -e "Liste des plugins à installer : $pluginfilepath"
+echo -e "Liste des plugins publics à installer : $pluginfilepath"
 echo "--------------------------------------"
 
 # Admin login
@@ -116,6 +116,7 @@ adminpass="admin"
 adminemail="nicolas.gies@digitaslbi.fr"
 
 # DB
+dbhost=localhost
 dbname=$foldername
 dbuser=root
 dbpass=root
@@ -166,7 +167,7 @@ wp core version
 
 # Create base configuration
 bot "Je lance la configuration"
-wp core config --dbname=$dbname --dbuser=$dbuser --dbpass=$dbpass --dbprefix=$dbprefix --extra-php <<PHP
+wp core config --dbhost=$dbhost --dbname=$dbname --dbuser=$dbuser --dbpass=$dbpass --dbprefix=$dbprefix --extra-php <<PHP
 // Désactiver l'éditeur de thème et de plugins en administration
 define('DISALLOW_FILE_EDIT', true);
 
@@ -180,8 +181,14 @@ define('EMPTY_TRASH_DAYS', 7);
 define('WP_DEBUG', true);
 
 //To avoid error notice messages with WP-CLI
-if ( defined( 'WP_CLI' ) ) $_SERVER['HTTP_HOST'] = $_SERVER['SERVER_NAME'] = '';
+//if ( defined( 'WP_CLI' ) ) $_SERVER['HTTP_HOST'] = $_SERVER['SERVER_NAME'] = '';
 PHP
+
+# Replace some settings to avoid WP-CLI fails when parsing custom wp-config.php
+# https://github.com/wp-cli/wp-cli/issues/1631#issuecomment-127960241
+#sed_source="require_once(ABSPATH . 'wp-settings.php');"
+#sed_replacement="if(!function_exists('wp_unregister_GLOBALS')) require_once(ABSPATH . 'wp-settings.php');"
+#sed -i "s/$sed_source/$sed_replacement/g" "$pathtoinstall/wp-config.php"
 
 # Create database
 bot "Je crée la base de données"
@@ -329,9 +336,7 @@ case "$yn" in
 		rm -rf $pathtoinstall/wp-content/themes/$foldername.git
 	
 		# On récupère les infos nécessaire
-		read -p "Login ? " login
-		read -p "Password ? " pass
-		read -p "Nom du dépôt ? " depot
+		read -p "SSH GIT du dépôt ? " adresse_git_ssh
 	    
 	    # Init git et lien avec le dépôt
 	    git init 
@@ -344,7 +349,7 @@ case "$yn" in
 	    git commit -m 'first commit'
 	    git push -u upstream master
 
-	    success "OK ! adresse du dépôt est : https://bitbucket.org/$login/$depot";;
+	    success "OK ! Projet disponible sur $adresse_git_ssh";;
     n ) 
 		echo "Tans pis !";;
 esac

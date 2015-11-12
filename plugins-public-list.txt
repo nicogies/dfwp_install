@@ -4,3 +4,7 @@ custom-post-type-ui
 codepress-admin-columns
 sf-adminbar-tools
 query-monitor
+breadcrumb-navxt
+contact-form-7
+post-types-order
+regenerate-thumbnails

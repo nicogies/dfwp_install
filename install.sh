@@ -94,20 +94,38 @@ fi
 
 # Paths
 rootpath="/var/www/"
-pluginfilepath="${rootpath}wp_install/plugins.txt"
+# Path for public plugins list
+publicpluginsfilepath="${rootpath}wp_install/plugins-public-list.txt"
+# Path for pro plugins folder (zip files)
+propluginsfilepath="${rootpath}wp_install/plugins-pro/"
+# Path to a pro theme to install
+prothemefilepath="${rootpath}wp_install/themes-pro/route.zip"
+prothemefile=${prothemefilepath##*/}
+prothemefilenameonly=${prothemefile%%.*}
+# Path for the wordpress installation
 pathtoinstall="${rootpath}${foldername}"
 
 success "Récap"
 echo "--------------------------------------"
-echo -e "Url : $url"
-echo -e "Foldername : $foldername"
-echo -e "Titre du projet : $title"
+echo -e "Url : ${bold} $url ${normal}"
+echo -e "Foldername : ${bold} $foldername ${normal}"
+echo -e "Titre du projet : ${bold} $title ${normal}"
+echo -e "Path : ${bold} $pathtoinstall ${normal}"
+echo -e "Liste des plugins publics à installer depuis la liste $publicpluginsfilepath :"
+while read line || [ -n "$line" ]
+do
+	echo -e "${bold}$line ${normal}"
+done < $publicpluginsfilepath
+echo -e "Liste des plugins pros à installer depuis $propluginsfilepath : ${bold}"
+ls -1 $propluginsfilepath | grep .zip
 if [ -n "$acfkey" ]
 	then
-		echo -e "Clé ACF pro : $acfkey"
+		echo -e "advanced-custom-fields-pro${normal} (key : $acfkey)"
 fi
-echo -e "Path : $pathtoinstall"
-echo -e "Liste des plugins publics à installer : $pluginfilepath"
+if [ -f $prothemefilepath ]
+	then
+		echo -e "${normal}Theme pro à installer : ${bold} $prothemefilenameonly ${normal}"
+fi		
 echo "--------------------------------------"
 
 # Admin login
@@ -133,19 +151,25 @@ locale=en_US
 # Welcome !
 success "L'installation va pouvoir commencer"
 echo "--------------------------------------"
+read -p "Appuyez sur une touche pour continuer"
 
 # CHECK :  Directory doesn't exist
 cd $rootpath
 
 # Check if provided folder name already exists
-if [ -d $pathtoinstall ]; then
-  error "Le dossier $pathtoinstall existe déjà. Par sécurité, je ne vais pas plus loin pour ne rien écraser."
-  exit 1
+if [ -d $pathtoinstall ] && [  -f "$pathtoinstall/wp-config.php" ]
+	then
+		error "Le dossier $pathtoinstall existe déjà et wp-config.php est présent. Par sécurité, je ne vais pas plus loin pour ne rien écraser."
+		exit 1
 fi
 
 # Create directory
-bot "Je crée le dossier : $foldername"
-mkdir $foldername
+if [ ! -d $foldername ]
+	then
+		bot "Je crée le dossier : $foldername"
+		mkdir $foldername
+fi
+
 cd $foldername
 
 bot "Je crée le fichier de configuration wp-cli.yml"
@@ -199,41 +223,87 @@ wp db create
 bot "J'installe WordPress..."
 wp core install --url=$url --title="$title" --admin_user=$adminlogin --admin_email=$adminemail --admin_password=$adminpass
 
-# Plugins install
-bot "J'installe les plugins à partir de la liste"
+# Public Plugins install
+bot "J'installe les plugins publics à partir de la liste"
 while read line || [ -n "$line" ]
 do
 	bot "-> Plugin $line"
     wp plugin install $line --activate
-done < $pluginfilepath
+done < $publicpluginsfilepath
 
-#Si on a bien une clé acf pro
+# Pro Plugins install
+cd $propluginsfilepath
+for f in *.zip;
+	do
+		bot "-> Plugin $f"
+		cp $f $pathtoinstall/wp-content/plugins/
+		cd $pathtoinstall/wp-content/plugins/
+		wp plugin install $f --activate
+		rm $f
+done
+
+# Pro Plugins install : ACF PRO Download with Key
 if [ -n "$acfkey" ]
 	then
 		bot "-> J'installe la version pro de ACF"
-		cd $pathtoinstall
-		cd wp-content/plugins/
+		cd $pathtoinstall/wp-content/plugins/
 		curl -L -v 'http://connect.advancedcustomfields.com/index.php?p=pro&a=download&k='$acfkey > advanced-custom-fields-pro.zip
 		wp plugin install advanced-custom-fields-pro.zip --activate
+		rm advanced-custom-fields-pro.zip
 fi
 
 # Download from private git repository
-bot "Je télécharge le thème sage"
-cd $pathtoinstall
-cd wp-content/themes/
-git clone https://github.com/roots/sage.git $foldername
-cd $foldername
-LATEST_RELEASE=$(git describe --tags $(git rev-list --tags --max-count=1))
-git checkout $LATEST_RELEASE
-
-
+#bot "Je télécharge le thème sage"
+#cd $pathtoinstall
+#cd wp-content/themes/
+#git clone https://github.com/roots/sage.git $foldername
+#cd $foldername
+#LATEST_RELEASE=$(git describe --tags $(git rev-list --tags --max-count=1))
+#git checkout $LATEST_RELEASE
+#
 # Modify style.css
-bot "Je modifie le fichier style.css du thème $foldername"
+#bot "Je modifie le fichier style.css du thème $foldername"
+#echo "/* 
+#	Theme Name: $foldername
+#	Description: $foldername theme based on Sage Starter Theme
+#	Version: 1.0 
+#*/" > style.css
+
+if [ -f $prothemefilepath ]
+	then
+		bot "-> J'installe le thème $prothemefilenameonly"
+		cp $prothemefilepath $pathtoinstall/wp-content/themes/
+		cd $pathtoinstall/wp-content/themes
+		wp theme install $prothemefile
+		rm $prothemefile
+fi
+
+bot "Création du thème child depuis $prothemefilenameonly vers $title ($foldername)"
+mkdir $foldername
+
+# Création de style.css
+bot "Je modifie le fichier style.css du thème $title"
 echo "/* 
-	Theme Name: $foldername
-	Description: $foldername theme based on Sage Starter Theme
+	Theme Name: $title
+	Description: $title child theme based on $prothemefilenameonly Theme
 	Version: 1.0 
-*/" > style.css
+	Template: $prothemefilenameonly
+*/" > $foldername/style.css
+
+# Création de fonction.php
+bot "Création de function.php pour le thème $foldername"
+cat <<PHP > $foldername/function.php 
+<?php
+	function theme_enqueue_styles() {
+
+    wp_enqueue_style( 'parent-style', get_template_directory_uri() . '/style.css' );
+    wp_enqueue_style( 'child-style',
+        get_stylesheet_directory_uri() . '/style.css',
+        array( 'parent-style' )
+    );
+}
+add_action( 'wp_enqueue_scripts', 'theme_enqueue_styles' );
+PHP
 
 # Activate theme
 bot "J'active le thème $foldername:"
@@ -312,16 +382,16 @@ wp option update users_can_register 0
 # Finish !
 success "L'installation est terminée !"
 echo "--------------------------------------"
-echo -e "Url			: $url"
-echo -e "Path			: $pathtoinstall"
-echo -e "Admin login	: $adminlogin"
-echo -e "Admin pass		: $adminpass"
-echo -e "Admin email	: $adminemail"
-echo -e "DB name 		: localhost"
-echo -e "DB user 		: root"
-echo -e "DB pass 		: root"
-echo -e "DB prefix 		: $dbprefix"
-echo -e "WP_DEBUG 		: TRUE"
+echo -e "Url			: ${bold} $url ${normal}"
+echo -e "Path			: ${bold} $pathtoinstall ${normal}"
+echo -e "Admin login		: ${bold} $adminlogin ${normal}"
+echo -e "Admin pass		: ${bold} $adminpass ${normal}"
+echo -e "Admin email		: ${bold} $adminemail ${normal}"
+echo -e "DB name 		: ${bold} localhost ${normal}"
+echo -e "DB user 		: ${bold} root ${normal}"
+echo -e "DB pass 		: ${bold} root ${normal}"
+echo -e "DB prefix 		: ${bold} $dbprefix ${normal}"
+echo -e "WP_DEBUG 		: ${bold} TRUE ${normal}"
 echo "--------------------------------------"
 
 # Si on veut versionner le projet sur Gitlab

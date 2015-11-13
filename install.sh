@@ -98,12 +98,16 @@ rootpath="/var/www/"
 publicpluginsfilepath="${rootpath}wp_install/plugins-public-list.txt"
 # Path for pro plugins folder (zip files)
 propluginsfilepath="${rootpath}wp_install/plugins-pro/"
+# Slug of a public theme to install
+
 # Path to a pro theme to install
 prothemefilepath="${rootpath}wp_install/themes-pro/route.zip"
 prothemefile=${prothemefilepath##*/}
-prothemefilenameonly=${prothemefile%%.*}
+prothemename=${prothemefile%%.*}
 # Path for the wordpress installation
 pathtoinstall="${rootpath}${foldername}"
+# Path to an Wordpress XML Dump to import
+wordpressdump="$pathtoinstall/wp-content/themes/$prothemename/cs-framework/config/dump/dump.xml
 
 success "Récap"
 echo "--------------------------------------"
@@ -124,7 +128,7 @@ if [ -n "$acfkey" ]
 fi
 if [ -f $prothemefilepath ]
 	then
-		echo -e "${normal}Theme pro à installer : ${bold} $prothemefilenameonly ${normal}"
+		echo -e "${normal}Theme pro à installer : ${bold} $prothemename ${normal}"
 fi		
 echo "--------------------------------------"
 
@@ -269,23 +273,23 @@ fi
 
 if [ -f $prothemefilepath ]
 	then
-		bot "-> J'installe le thème $prothemefilenameonly"
+		bot "-> J'installe le thème $prothemename"
 		cp $prothemefilepath $pathtoinstall/wp-content/themes/
 		cd $pathtoinstall/wp-content/themes
 		wp theme install $prothemefile
 		rm $prothemefile
 fi
 
-bot "Création du thème child depuis $prothemefilenameonly vers $title ($foldername)"
+bot "Création du thème child depuis $prothemename vers $title ($foldername)"
 mkdir $foldername
 
 # Création de style.css
 bot "Je modifie le fichier style.css du thème $title"
 echo "/* 
 	Theme Name: $title
-	Description: $title child theme based on $prothemefilenameonly Theme
+	Description: $title child theme based on $prothemename Theme
 	Version: 1.0 
-	Template: $prothemefilenameonly
+	Template: $prothemename
 */" > $foldername/style.css
 
 # Création de fonction.php
@@ -319,11 +323,11 @@ wp theme delete twentyfifteen
 wp option update blogdescription ''
 
 
-read -p "Importer les contenus de demo du thème $prothemefilenameonly?" yn
+read -p "Importer les contenus de demo du thème $prothemename?" yn
 case $yn in
-	[Yy]* ) bot "Importation des contenus de démo de $prothemefilenameonly..."
+	[Yy]* ) bot "Importation des contenus de démo de $prothemename..."
 		wp plugin activate wordpress-importer
-		wp import $pathtoinstall/wp-content/themes/$prothemefilenameonly/cs-framework/config/dump/dump.xml --authors=skip
+		wp import $wordpressdump --authors=skip
 		wp menu location assign main primary
 		;;
 	[Nn]* )
@@ -386,8 +390,11 @@ wp option update users_can_register 0
 	
 #Activation des plugins
 bot "Activation de tous les plugins..."
-wp plugin activate --all
-
+#wp plugin activate --all
+bot "L'activation est plugins "
+error "/!\ Les plugins n'ont pas été activés : register_activation_hook ne fonctionne pas avec tous les plugins lorsque WP-CLI effectue l'activation"
+error "RDV à l'adresse $url/wp-admin/plugins.php?plugin_status=inactive pour les activer"
+	
 #Créer la page de la pattern library
 #bot "Je crée la page pattern et l'associe au template adéquat."
 #wp post create --post_type=page --post_title='Pattern' --post_status=publish --page_template='page-pattern.php'

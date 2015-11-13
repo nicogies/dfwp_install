@@ -143,9 +143,16 @@ if [ -z $acfkey ]
 		error 'ACF pro ne sera pas installé'
 fi
 
+read -p "Secure wp-admin with htdigest/htaccess [y/n]" answer
+if [[ $answer = y ]] ; then
+		securewpadmin="yes"
+	else
+		securewpadmin="no"
+fi
+
 # Paths
 rootpath="/var/www/"
-	
+
 # Path for public plugins list
 publicpluginsfilepath="${rootpath}wp_install/plugins-public-list.txt"
 	
@@ -153,10 +160,10 @@ publicpluginsfilepath="${rootpath}wp_install/plugins-public-list.txt"
 propluginsfilepath="${rootpath}wp_install/plugins-pro/"
 
 # Theme installation
-# Public theme : themetoinstall = (theme name) // e.g. "theme"
-# Pro theme : themetoinstall = (path to zip file) // e.g. "${rootpath}wp_install/themes-pro/theme.zip"
+# Public theme : themetoinstall = (theme slug) // e.g. "university"
+# Pro theme : themetoinstall = (path to a local zip file, or URL to a remote zip file) // e.g. "${rootpath}wp_install/themes-pro/theme.zip"
 themetoinstall="${rootpath}wp_install/themes-pro/route.zip"
-#themetoinstall="university"
+# No need to edit themefile & themename
 themefile=${themetoinstall##*/}
 themename=${themefile%%.*}
 
@@ -191,12 +198,18 @@ echo -e "Wordpress locale	: ${bold} $locale ${normal}"
 echo -e "Admin login		: ${bold} $adminlogin ${normal}"
 echo -e "Admin pass		: ${bold} $adminpass ${normal}"
 echo -e "Admin email		: ${bold} $adminemail ${normal}"
+echo -e "Secure wp-admin		: ${bold} $securewpadmin ${normal}"
 echo -e "DB host 		: ${bold} $dbhost ${normal}"
 echo -e "DB name 		: ${bold} $dbname ${normal}"
 echo -e "DB user 		: ${bold} $dbuser ${normal}"
 echo -e "DB pass 		: ${bold} $dbpass ${normal}"
 echo -e "DB prefix		: ${bold} $dbprefix ${normal}"
-echo -e "${normal}Thème à installer	: ${bold} $themename ${normal}"
+echo -e "Thème à installer	: ${bold} $themename ${normal}"
+if [ -n "$wordpressdump" ]
+	then
+		echo -e "Import des contenus	: ${bold} $wordpressdump ${normal}"
+fi
+
 echo -e "Liste des plugins publics à installer depuis la liste $publicpluginsfilepath :"
 while read line || [ -n "$line" ]
 do
@@ -298,6 +311,7 @@ done < $publicpluginsfilepath
 
 # Pro Plugins install
 cd $propluginsfilepath
+shopt -s nullglob
 for f in *.zip;
 	do
 		bot "-> Plugin $f"
@@ -314,24 +328,6 @@ if [ -n "$acfkey" ]
 		wp plugin install advanced-custom-fields-pro.zip
 		rm advanced-custom-fields-pro.zip
 fi
-
-# Download from private git repository
-#bot "Je télécharge le thème sage"
-#cd $pathtoinstall
-#cd wp-content/themes/
-#git clone https://github.com/roots/sage.git $foldername
-#cd $foldername
-#LATEST_RELEASE=$(git describe --tags $(git rev-list --tags --max-count=1))
-#git checkout $LATEST_RELEASE
-#
-# Modify style.css
-#bot "Je modifie le fichier style.css du thème $foldername"
-#echo "/* 
-#	Theme Name: $foldername
-#	Description: $foldername theme based on Sage Starter Theme
-#	Version: 1.0 
-#*/" > style.css
-
 
 bot "-> Installation du thème $themename"
 cd $pathtoinstall
@@ -353,17 +349,42 @@ echo "/*
 
 # Création de fonction.php
 bot "Création de functions.php pour le thème $foldername"
-cat <<PHP > $foldername/functions.php 
+cat <<"PHP" > $foldername/functions.php
 <?php
-	function theme_enqueue_styles() {
+/* Enqueuing the parent theme stylesheet */
+function theme_enqueue_styles() {
 
-    wp_enqueue_style( 'parent-style', get_template_directory_uri() . '/style.css' );
-    wp_enqueue_style( 'child-style',
-        get_stylesheet_directory_uri() . '/style.css',
-        array( 'parent-style' )
-    );
+	$parent_style = 'parent-style';
+
+	wp_enqueue_style( $parent_style, get_template_directory_uri() . '/style.css' );
+	wp_enqueue_style( 'child-style',
+		get_stylesheet_directory_uri() . '/style.css',
+		array( $parent_style )
+	);
 }
 add_action( 'wp_enqueue_scripts', 'theme_enqueue_styles' );
+
+/* Hide WP version strings from scripts and styles
+ * @return {string} $src
+ * @filter script_loader_src
+ * @filter style_loader_src
+ */
+function wp_remove_wp_version_strings( $src ) {
+     global $wp_version;
+     parse_str(parse_url($src, PHP_URL_QUERY), $query);
+     if ( !empty($query['ver']) && $query['ver'] === $wp_version ) {
+          $src = remove_query_arg('ver', $src);
+     }
+     return $src;
+}
+add_filter( 'script_loader_src', 'wp_remove_wp_version_strings' );
+add_filter( 'style_loader_src', 'wp_remove_wp_version_strings' );
+
+/* Hide WP version strings from generator meta tag */
+function wp_remove_version() {
+return '';
+}
+add_filter('the_generator', 'wp_remove_version');
 PHP
 
 # Activate theme
@@ -381,20 +402,24 @@ wp theme delete twentythirteen
 wp theme delete twentyfifteen
 wp option update blogdescription ''
 
+line
+# If Dump XML is filled, ask user for content import
+if [ -f $wordpressdump ]
+	then
+		read -p "Importer les contenus depuis $wordpressdump (y/n)?" yn
+fi
 
-read -p "Importer les contenus de demo du thème $themename?" yn
 case $yn in
 	[Yy]* ) bot "Importation des contenus de démo de $themename..."
 		wp plugin activate wordpress-importer
 		wp import $wordpressdump --authors=skip
 		wp menu location assign main primary
 		;;
-	[Nn]* )
+	* ) bot "Pas d'importation de contenus"
 		# Create standard pages
 		bot "Création d'une page Home vide"
 		wp post create --post_type=page --post_title='Home' --post_status=publish
 		;;
-	* ) echo "Please answer yes or no.";;
 esac
 
 # Assignation de la page Home comme homepage
@@ -442,6 +467,29 @@ RewriteRule ^wp-includes/js/tinymce/langs/.+\.php - [F,L]
 RewriteRule ^wp-includes/theme-compat/ - [F,L]
 </IfModule>
 " >> .htaccess
+
+if [ $securewpadmin == "yes" ]
+then
+bot "Génération d'un fichier .htdigest dans wp-admin"
+# Wp-Admin secure with htdigest
+echo ${adminlogin}:realm:$(printf "${adminlogin}:realm:${adminpass}" | md5sum - | sed -e 's/\s\+-//') > $pathtoinstall/wp-admin/.htdigest
+
+#Modifier le fichier wp-admin/.htaccess
+bot "Ajout des règles htaccess dans wp-admin"
+cd $pathtoinstall
+echo "
+<Files admin-ajax.php>
+Order allow,deny
+Allow from all
+Satisfy any
+</Files>
+AuthType Digest
+AuthDigestProvider file
+AuthUserFile \"$pathtoinstall/wp-admin/.htdigest\"
+AuthName Limited!
+require valid-user
+" >> wp-admin/.htaccess
+fi
 
 #Options de sécurité, juste au cas où
 bot "Désactivation enregistrements des utilisateurs publics"

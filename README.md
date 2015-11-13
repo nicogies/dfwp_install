@@ -17,3 +17,13 @@ WordPress auto install with WP-Cli
 
 ## Use :
 bash install.sh
+
+### Vagrant configuration
+
+```rb
+  # Fix for slow external network connections
+    config.vm.provider :virtualbox do |vb|
+      vb.customize ['modifyvm', :id, '--natdnshostresolver1', 'on']
+      vb.customize ['modifyvm', :id, '--natdnsproxy1', 'on']
+    end
+```

@@ -228,7 +228,7 @@ bot "J'installe les plugins publics à partir de la liste"
 while read line || [ -n "$line" ]
 do
 	bot "-> Plugin $line"
-    wp plugin install $line --activate
+    wp plugin install $line
 done < $publicpluginsfilepath
 
 # Pro Plugins install
@@ -236,10 +236,8 @@ cd $propluginsfilepath
 for f in *.zip;
 	do
 		bot "-> Plugin $f"
-		cp $f $pathtoinstall/wp-content/plugins/
-		cd $pathtoinstall/wp-content/plugins/
-		wp plugin install $f --activate
-		rm $f
+		cd $pathtoinstall
+		wp plugin install $propluginsfilepath$f
 done
 
 # Pro Plugins install : ACF PRO Download with Key
@@ -248,7 +246,7 @@ if [ -n "$acfkey" ]
 		bot "-> J'installe la version pro de ACF"
 		cd $pathtoinstall/wp-content/plugins/
 		curl -L -v 'http://connect.advancedcustomfields.com/index.php?p=pro&a=download&k='$acfkey > advanced-custom-fields-pro.zip
-		wp plugin install advanced-custom-fields-pro.zip --activate
+		wp plugin install advanced-custom-fields-pro.zip
 		rm advanced-custom-fields-pro.zip
 fi
 
@@ -320,13 +318,23 @@ wp theme delete twentythirteen
 wp theme delete twentyfifteen
 wp option update blogdescription ''
 
-# Create standard pages
-bot "Je crée les pages standards Home et Terms and conditions"
-wp post create --post_type=page --post_title='Home' --post_status=publish
-wp post create --post_type=page --post_title='Terms and conditions' --post_status=publish
 
-# La page Home est une page
-# Et c'est la page qui se nomme Home
+read -p "Importer les contenus de demo du thème $prothemefilenameonly?" yn
+case $yn in
+	[Yy]* ) bot "Importation des contenus de démo de $prothemefilenameonly..."
+		wp plugin activate wordpress-importer
+		wp import $pathtoinstall/wp-content/themes/$prothemefilenameonly/cs-framework/config/dump/dump.xml --authors=skip
+		wp menu location assign main primary
+		;;
+	[Nn]* )
+		# Create standard pages
+		bot "Création d'une page Home vide"
+		wp post create --post_type=page --post_title='Home' --post_status=publish
+		;;
+	* ) echo "Please answer yes or no.";;
+esac
+
+# Assignation de la page Home comme homepage
 bot "Configuration de la page Home"
 wp option update show_on_front 'page'
 wp option update page_on_front $(wp post list --post_type=page --post_status=publish --posts_per_page=1 --pagename=Home --field=ID --format=ids)
@@ -373,7 +381,12 @@ RewriteRule ^wp-includes/theme-compat/ - [F,L]
 " >> .htaccess
 
 #Options de sécurité, juste au cas où
+bot "Désactivation enregistrements des utilisateurs publics"
 wp option update users_can_register 0
+	
+#Activation des plugins
+bot "Activation de tous les plugins..."
+wp plugin activate --all
 
 #Créer la page de la pattern library
 #bot "Je crée la page pattern et l'associe au template adéquat."
@@ -400,7 +413,7 @@ case "$yn" in
     y ) 
 
 		# On supprime le dossier git présent dans le dossier du thème
-		rm -rf $pathtoinstall/wp-content/themes/$foldername.git
+		rm -rf $pathtoinstall/wp-content/themes/$foldername/.git
 	
 		# On récupère les infos nécessaire
 		read -p "SSH GIT du dépôt ? " adresse_git_ssh

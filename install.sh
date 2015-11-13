@@ -3,8 +3,9 @@
 # Automatize WordPress installation
 # bash install.sh
 #
+# Author: Nicolas Gies <nicolas.gies@digitaslbi.fr>
+#
 # Inspirated from Maxime BJ & Clément Biron
-# For more information, please visit 
 # https://bitbucket.org/maximebj/wippy-spread
 # https://github.com/posykrat/dfwp_install
 

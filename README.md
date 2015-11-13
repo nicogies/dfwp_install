@@ -10,6 +10,7 @@ WordPress (auto) installer with WP-Cli
 - Setup homepage with 'Home' page
 - Setup permalink with /%postname%/ structure and generate .htaccess file
 - Add security rules in .htaccess file
+- Secure wp-admin directory with htdigest & htaccess
 - Add WordPress rules in wp-config file
 - Download your favorite theme (public/pro)
 - Create a child theme and activate it

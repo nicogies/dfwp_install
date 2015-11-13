@@ -84,6 +84,57 @@ if [ -z $url ]
 		exit
 fi
 
+# On récupère l'adminemail
+# Si pas de valeur renseignée, message d'erreur et exit
+adminemail="nicolas.gies@digitaslbi.fr"
+read -e -i "$adminemail" -p "Email admin ? " input
+adminemail="${input:-$adminemail}"
+if [ -z $adminemail ]
+	then
+		error 'Renseigner un email'
+		exit
+fi
+
+# Database host
+dbhost="localhost"
+read -e -i "$dbhost" -p "Database host ? " input
+dbhost="${input:-$dbhost}"
+if [ -z $dbhost ]
+	then
+		error 'Renseigner le host de la BDD'
+		exit
+fi
+
+# Database name
+dbname=$foldername
+read -e -i "$foldername" -p "Database name ? " input
+dbname="${input:-$dbname}"
+if [ -z $dbname ]
+	then
+		error 'Renseigner le nom de la BDD'
+		exit
+fi
+
+# Database user
+dbuser="root"
+read -e -i "root" -p "Database user ? " input
+dbuser="${input:-$dbuser}"
+if [ -z $dbuser ]
+	then
+		error 'Renseigner le nom de la BDD'
+		exit
+fi
+
+# Database password
+dbpass="root"
+read -e -i "root" -p "Database password ? " input
+dbpass="${input:-$dbpass}"
+if [ -z $dbpass ]
+	then
+		error 'Renseigner le nom de la BDD'
+		exit
+fi
+
 # On récupère la clé acf 
 # Si pas de valeur renseignée, message d'erreur 
 read -p "Clé ACF pro ? " acfkey;
@@ -94,48 +145,33 @@ fi
 
 # Paths
 rootpath="/var/www/"
+	
 # Path for public plugins list
 publicpluginsfilepath="${rootpath}wp_install/plugins-public-list.txt"
+	
 # Path for pro plugins folder (zip files)
 propluginsfilepath="${rootpath}wp_install/plugins-pro/"
-# Slug of a public theme to install
 
-# Path to a pro theme to install
-prothemefilepath="${rootpath}wp_install/themes-pro/route.zip"
-prothemefile=${prothemefilepath##*/}
-prothemename=${prothemefile%%.*}
+# Theme installation
+# Public theme : themetoinstall = (theme name) // e.g. "theme"
+# Pro theme : themetoinstall = (path to zip file) // e.g. "${rootpath}wp_install/themes-pro/theme.zip"
+themetoinstall="${rootpath}wp_install/themes-pro/route.zip"
+#themetoinstall="university"
+themefile=${themetoinstall##*/}
+themename=${themefile%%.*}
+
 # Path for the wordpress installation
 pathtoinstall="${rootpath}${foldername}"
-# Path to an Wordpress XML Dump to import
-wordpressdump="$pathtoinstall/wp-content/themes/$prothemename/cs-framework/config/dump/dump.xml
 
-success "Récap"
-echo "--------------------------------------"
-echo -e "Url : ${bold} $url ${normal}"
-echo -e "Foldername : ${bold} $foldername ${normal}"
-echo -e "Titre du projet : ${bold} $title ${normal}"
-echo -e "Path : ${bold} $pathtoinstall ${normal}"
-echo -e "Liste des plugins publics à installer depuis la liste $publicpluginsfilepath :"
-while read line || [ -n "$line" ]
-do
-	echo -e "${bold}$line ${normal}"
-done < $publicpluginsfilepath
-echo -e "Liste des plugins pros à installer depuis $propluginsfilepath : ${bold}"
-ls -1 $propluginsfilepath | grep .zip
-if [ -n "$acfkey" ]
-	then
-		echo -e "advanced-custom-fields-pro${normal} (key : $acfkey)"
-fi
-if [ -f $prothemefilepath ]
-	then
-		echo -e "${normal}Theme pro à installer : ${bold} $prothemename ${normal}"
-fi		
-echo "--------------------------------------"
+# Path to a Wordpress XML Dump to import
+wordpressdump="$pathtoinstall/wp-content/themes/$themename/cs-framework/config/dump/dump.xml"
+
+# Wordpress Locale
+locale=en_US
 
 # Admin login
 adminlogin="${foldername}_admin"
-adminemail="nicolas.gies@digitaslbi.fr"
-# Generate random admin password
+# Admin password : Generate a random one
 adminpass=`< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-16}`
 
 # DB
@@ -144,10 +180,35 @@ dbname=$foldername
 dbuser=root
 dbpass=root
 dbprefix="$foldername"_
-
-# Wordpress Locale
-locale=en_US
-
+	
+success "Récap"
+echo "--------------------------------------"
+echo -e "Url			: ${bold} $url ${normal}"
+echo -e "Foldername		: ${bold} $foldername ${normal}"
+echo -e "Titre du projet		: ${bold} $title ${normal}"
+echo -e "Docroot			: ${bold} $pathtoinstall ${normal}"
+echo -e "Wordpress locale	: ${bold} $locale ${normal}"
+echo -e "Admin login		: ${bold} $adminlogin ${normal}"
+echo -e "Admin pass		: ${bold} $adminpass ${normal}"
+echo -e "Admin email		: ${bold} $adminemail ${normal}"
+echo -e "DB host 		: ${bold} $dbhost ${normal}"
+echo -e "DB name 		: ${bold} $dbname ${normal}"
+echo -e "DB user 		: ${bold} $dbuser ${normal}"
+echo -e "DB pass 		: ${bold} $dbpass ${normal}"
+echo -e "DB prefix		: ${bold} $dbprefix ${normal}"
+echo -e "${normal}Thème à installer	: ${bold} $themename ${normal}"
+echo -e "Liste des plugins publics à installer depuis la liste $publicpluginsfilepath :"
+while read line || [ -n "$line" ]
+do
+	echo -e "- ${bold}$line ${normal}"
+done < $publicpluginsfilepath
+echo -e "Liste des plugins pros à installer depuis le dossier $propluginsfilepath : ${bold}"
+ls -1 $propluginsfilepath | grep .zip | sed 's/.*/- &/'
+if [ -n "$acfkey" ]
+	then
+		echo -e "${normal}- ${bold}advanced-custom-fields-pro${normal} (key : $acfkey)${normal}"
+fi
+echo "--------------------------------------"
 #  ==============================
 #  = The show is about to begin =
 #  ==============================
@@ -271,30 +332,28 @@ fi
 #	Version: 1.0 
 #*/" > style.css
 
-if [ -f $prothemefilepath ]
-	then
-		bot "-> J'installe le thème $prothemename"
-		cp $prothemefilepath $pathtoinstall/wp-content/themes/
-		cd $pathtoinstall/wp-content/themes
-		wp theme install $prothemefile
-		rm $prothemefile
-fi
 
-bot "Création du thème child depuis $prothemename vers $title ($foldername)"
+bot "-> Installation du thème $themename"
+cd $pathtoinstall
+wp theme install $themetoinstall
+
+
+bot "Création du thème child depuis $themename vers $foldername"
+cd $pathtoinstall/wp-content/themes
 mkdir $foldername
 
 # Création de style.css
-bot "Je modifie le fichier style.css du thème $title"
+bot "Je modifie le fichier style.css du thème $foldername"
 echo "/* 
 	Theme Name: $title
-	Description: $title child theme based on $prothemename Theme
+	Description: $title child theme based on $themename Theme
 	Version: 1.0 
-	Template: $prothemename
+	Template: $themename
 */" > $foldername/style.css
 
 # Création de fonction.php
-bot "Création de function.php pour le thème $foldername"
-cat <<PHP > $foldername/function.php 
+bot "Création de functions.php pour le thème $foldername"
+cat <<PHP > $foldername/functions.php 
 <?php
 	function theme_enqueue_styles() {
 
@@ -323,9 +382,9 @@ wp theme delete twentyfifteen
 wp option update blogdescription ''
 
 
-read -p "Importer les contenus de demo du thème $prothemename?" yn
+read -p "Importer les contenus de demo du thème $themename?" yn
 case $yn in
-	[Yy]* ) bot "Importation des contenus de démo de $prothemename..."
+	[Yy]* ) bot "Importation des contenus de démo de $themename..."
 		wp plugin activate wordpress-importer
 		wp import $wordpressdump --authors=skip
 		wp menu location assign main primary
@@ -407,9 +466,10 @@ echo -e "Path			: ${bold} $pathtoinstall ${normal}"
 echo -e "Admin login		: ${bold} $adminlogin ${normal}"
 echo -e "Admin pass		: ${bold} $adminpass ${normal}"
 echo -e "Admin email		: ${bold} $adminemail ${normal}"
-echo -e "DB name 		: ${bold} localhost ${normal}"
-echo -e "DB user 		: ${bold} root ${normal}"
-echo -e "DB pass 		: ${bold} root ${normal}"
+echo -e "DB host 		: ${bold} $dbhost ${normal}"
+echo -e "DB name 		: ${bold} $dbname ${normal}"
+echo -e "DB user 		: ${bold} dbuser ${normal}"
+echo -e "DB pass 		: ${bold} $dbpass ${normal}"
 echo -e "DB prefix 		: ${bold} $dbprefix ${normal}"
 echo -e "WP_DEBUG 		: ${bold} TRUE ${normal}"
 echo "--------------------------------------"
